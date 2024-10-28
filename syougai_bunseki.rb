@@ -6,7 +6,7 @@ class SyougaiBunseki
         # メイン処理
         def proc_main(flg)
             case flg
-                when :add
+                when :all
                     # インプットファイルの一覧
                     input_file_arry = ["1.txt", "2.txt", "3.txt"]
                     file_txt = []
@@ -36,7 +36,7 @@ class SyougaiBunseki
                     return false
             end
 
-            if [:add, :red].include?(flg)
+            if [:all, :red].include?(flg)
                 # 形態素解析で名詞だけを抽出
                 ret, txt = SyougaiBunseki.calc_mecab
                 return false if ret != true
@@ -83,24 +83,31 @@ class SyougaiBunseki
         end
        
         # 形態素解析で名詞だけを抽出
-        # メモ：84653件 （本番データ）
+        # メモ：84653件 （本番データ）全件流したら28分かかります
         def write_output(txt)
             
             begin
                 fil = File.open("output.txt","a")
+
                 idx = 0
+                time_str = [Time.now.to_i, Time.now.to_i]       # [総経過, 途中経過]
 
                 natto = Natto::MeCab.new
                 natto.parse(txt) do |n|
                     
                     fil.puts("#{n.surface}") if n.feature.to_s.chomp.split(",")[0] == "名詞"
                     
-                    puts "#{idx.to_s.rjust(5)}件 - 処理中" if (idx.divmod(1000)[1] == 0 and idx != 0)
-                    # break if idx >= 50000
+                    if (idx.divmod(1000)[1] == 0 and idx != 0)
+
+                        puts "#{idx.to_s.rjust(5)}件 - 処理中 (#{Time.at(Time.now.to_i - time_str[1]).strftime("%M:%S")})"
+                        time_str[1] = Time.now.to_i
+                    end
+                    # break if idx >= 3000
                     idx += 1
+                    
                 end
                 fil.close
-                puts "#{idx.to_s.rjust(5)}件 - 完　了"
+                puts "#{idx.to_s.rjust(5)}件 - 完　了 (#{Time.at(Time.now.to_i - time_str[0]).strftime("%M:%S")})"
                 return true
                 
             rescue => ex
@@ -121,10 +128,10 @@ class SyougaiBunseki
 
                 # 配列→ハッシュに変換
                 hash = arry.group_by(&:itself).map{ |key, val| [key, val.count] }.to_h
-
+                
                 # キーでソート
                 hash = hash.sort_by { |key, val| val }.reverse.to_h
-
+                
                 # マッチングが多いキーのみ絞り込み
                 hash.select! { |key, val| val >= 30 }
                 
